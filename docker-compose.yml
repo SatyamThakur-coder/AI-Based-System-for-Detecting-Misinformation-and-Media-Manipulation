@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: factguard-postgres
+    environment:
+      POSTGRES_USER: factguard
+      POSTGRES_PASSWORD: factguard
+      POSTGRES_DB: factguard_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - factguard-network
+
+  # Backend API
+  backend:
+    build: ./backend
+    container_name: factguard-backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    environment:
+      - DATABASE_URL=postgresql://factguard:factguard@postgres:5432/factguard_db
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+    depends_on:
+      - postgres
+    networks:
+      - factguard-network
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    container_name: factguard-frontend
+    command: npm run dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+    networks:
+      - factguard-network
+
+networks:
+  factguard-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
